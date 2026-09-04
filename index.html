@@ -1,0 +1,698 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+<title>CounterPick — MLBB draft intelligence</title>
+<link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 32 32'%3E%3Crect width='32' height='32' rx='7' fill='%230A0D12'/%3E%3Ccircle cx='16' cy='16' r='9.5' fill='none' stroke='%23FFB238' stroke-width='2.2'/%3E%3Ccircle cx='16' cy='16' r='2.6' fill='%23FF4D5E'/%3E%3Cline x1='16' y1='3.5' x2='16' y2='8' stroke='%23FFB238' stroke-width='2.2'/%3E%3Cline x1='16' y1='24' x2='16' y2='28.5' stroke='%23FFB238' stroke-width='2.2'/%3E%3C/svg%3E">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Chakra+Petch:wght@500;600;700&family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
+<style>
+
+  :root{
+    --bg:#0a0d12;
+    --surface:#121722;
+    --surface-2:#1a2130;
+    --surface-3:#212a3b;
+    --border:#252e3f;
+    --border-soft:#1b2230;
+    --text:#eef1f6;
+    --text-dim:#8891a3;
+    --text-faint:#525b6c;
+
+    --gold:#ffb238;
+    --gold-soft:#ffb23822;
+    --blue:#4c8dff;
+    --blue-soft:#4c8dff22;
+    --red:#ff4d5e;
+    --red-soft:#ff4d5e22;
+    --green:#2fd883;
+    --green-soft:#2fd88322;
+
+    --font-display:'Chakra Petch', sans-serif;
+    --font-body:'Inter', sans-serif;
+
+    --radius-s:8px;
+    --radius-m:14px;
+    --radius-l:22px;
+  }
+
+  *{box-sizing:border-box;}
+  html{-webkit-tap-highlight-color:transparent;}
+  body{
+    margin:0;
+    background:
+      radial-gradient(680px 420px at 12% -8%, #ffb23814 0%, transparent 60%),
+      radial-gradient(620px 420px at 108% 4%, #4c8dff17 0%, transparent 60%),
+      var(--bg);
+    color:var(--text);
+    font-family:var(--font-body);
+    -webkit-font-smoothing:antialiased;
+  }
+  @media (prefers-reduced-motion: reduce){
+    *{animation-duration:.001ms !important; transition-duration:.001ms !important;}
+  }
+
+  a{color:inherit;}
+  button{font-family:var(--font-body);}
+  :focus-visible{outline:2px solid var(--gold); outline-offset:2px; border-radius:6px;}
+
+  .shell{max-width:900px; margin:0 auto; padding:0 18px 64px;}
+
+  header{
+    position:sticky; top:0; z-index:20;
+    background:#0a0d12cc;
+    backdrop-filter:blur(14px);
+    -webkit-backdrop-filter:blur(14px);
+    border-bottom:1px solid var(--border-soft);
+  }
+  .header-inner{
+    max-width:900px; margin:0 auto; padding:14px 18px;
+    display:flex; align-items:center; justify-content:space-between; gap:16px; flex-wrap:wrap;
+  }
+  .brand{display:flex; align-items:center; gap:10px;}
+  .brand-mark{width:30px; height:30px; flex:none;}
+  .brand-text{display:flex; flex-direction:column; line-height:1.05;}
+  .brand-name{
+    font-family:var(--font-display); font-weight:700; font-size:19px; letter-spacing:.2px;
+  }
+  .brand-sub{font-size:10.5px; color:var(--text-faint); font-weight:500; margin-top:2px;}
+
+  nav.tabs{
+    display:flex; gap:4px; background:var(--surface); border:1px solid var(--border);
+    padding:4px; border-radius:12px; position:relative;
+  }
+  .tab{
+    position:relative; z-index:1;
+    padding:9px 16px; border-radius:9px; font-size:13.5px; font-weight:600;
+    color:var(--text-dim); cursor:pointer; user-select:none; white-space:nowrap;
+    transition:color .18s ease;
+    font-family:var(--font-display);
+    letter-spacing:.2px;
+  }
+  .tab.active{color:#10131a;}
+  .tab-indicator{
+    position:absolute; top:4px; bottom:4px; left:4px;
+    width:0; background:var(--gold); border-radius:9px;
+    transition:transform .28s cubic-bezier(.65,0,.35,1), width .28s cubic-bezier(.65,0,.35,1);
+  }
+
+  .page-head{padding:26px 0 18px;}
+  .page-head h1{
+    font-family:var(--font-display); font-size:25px; font-weight:700; margin:0 0 6px;
+    letter-spacing:.2px;
+  }
+  .page-head p{margin:0; color:var(--text-dim); font-size:13.5px; max-width:50ch; line-height:1.5;}
+
+  .panel{
+    background:var(--surface); border:1px solid var(--border); border-radius:var(--radius-l);
+    padding:18px; margin-bottom:14px;
+  }
+  .panel-head{display:flex; align-items:center; gap:9px; margin-bottom:14px;}
+  .panel-bar{width:4px; height:16px; border-radius:3px; flex:none;}
+  .panel-bar.red{background:var(--red);}
+  .panel-bar.gold{background:var(--gold);}
+  .panel-bar.blue{background:var(--blue);}
+  .panel-head h2{font-family:var(--font-display); font-size:14.5px; font-weight:600; margin:0; letter-spacing:.2px;}
+  .panel-head .count{
+    margin-left:auto; font-size:11px; color:var(--text-faint); font-weight:600;
+    background:var(--surface-2); border:1px solid var(--border); padding:3px 9px; border-radius:20px;
+  }
+
+  .field label{display:block; font-size:11px; color:var(--text-faint); margin-bottom:5px; font-weight:600;}
+  input[type=text]{
+    width:100%; padding:12px 13px; background:var(--surface-2); color:var(--text);
+    border:1px solid var(--border); border-radius:var(--radius-s); font-size:14px;
+    font-family:var(--font-body); transition:border-color .15s ease, background .15s ease;
+  }
+  input[type=text]::placeholder{color:var(--text-faint);}
+  input[type=text]:focus{outline:none; border-color:var(--gold); background:var(--surface-3);}
+
+  .enemy-grid{display:grid; grid-template-columns:repeat(auto-fit, minmax(190px, 1fr)); gap:10px;}
+
+  button.cta{
+    width:100%; padding:14px; border:none; border-radius:12px; font-size:14.5px; font-weight:700;
+    cursor:pointer; margin-top:14px; font-family:var(--font-display); letter-spacing:.3px;
+    background:var(--gold); color:#191308; transition:transform .12s ease, filter .12s ease;
+  }
+  button.cta:active{transform:scale(.98); filter:brightness(.94);}
+
+  .hint{font-size:12px; color:var(--text-faint); line-height:1.6; margin:0 0 14px;}
+
+  #results{margin-top:16px;}
+  .results-grid{display:grid; grid-template-columns:repeat(auto-fill, minmax(300px, 1fr)); gap:10px;}
+
+  .result-card{
+    background:var(--surface); border:1px solid var(--border); border-radius:var(--radius-m);
+    padding:14px 15px;
+  }
+  .result-top{display:flex; align-items:center; gap:10px;}
+  .rank-chip{
+    flex:none; width:28px; height:28px; border-radius:9px; display:flex; align-items:center; justify-content:center;
+    font-family:var(--font-display); font-weight:700; font-size:13px; background:var(--surface-2);
+    color:var(--text-dim); border:1px solid var(--border);
+  }
+  .rank-chip.r1{background:var(--gold-soft); color:var(--gold); border-color:#ffb23855;}
+  .rank-chip.r2{background:#cfd6e455; color:#dbe1ec; border-color:#cfd6e455;}
+  .rank-chip.r3{background:#c9853b33; color:#e0a869; border-color:#c9853b55;}
+
+  .hero-name{font-weight:700; font-size:15px; flex:1; min-width:0;}
+
+  .avatar{
+    position:relative; display:inline-flex; align-items:center; justify-content:center;
+    border-radius:50%; overflow:hidden; background:var(--surface-3); flex:none;
+    border:1px solid var(--border);
+  }
+  .avatar img{width:100%; height:100%; object-fit:cover; display:block;}
+  .avatar-fallback{
+    width:100%; height:100%; align-items:center; justify-content:center;
+    font-family:var(--font-display); font-weight:700; color:var(--text-dim);
+  }
+  .avatar-sm{width:30px; height:30px; font-size:12px;}
+  .avatar-md{width:38px; height:38px; font-size:13px;}
+  .avatar-lg{width:64px; height:64px; font-size:22px; border-width:2px;}
+
+  .top-pick-flag{
+    display:inline-block; font-size:9.5px; font-weight:700; background:var(--green-soft); color:var(--green);
+    border:1px solid #2fd88355; padding:2px 7px; border-radius:20px; margin-left:6px; vertical-align:middle;
+    white-space:nowrap;
+  }
+  .score{font-weight:700; font-size:15px; font-family:var(--font-display); flex:none;}
+  .score.good{color:var(--green);}
+  .score.bad{color:var(--red);}
+
+  .score-bar-track{height:4px; border-radius:3px; background:var(--surface-3); margin:10px 0 4px; overflow:hidden;}
+  .score-bar-fill{height:100%; border-radius:3px;}
+  .score-bar-fill.good{background:var(--green);}
+  .score-bar-fill.bad{background:var(--red);}
+
+  .coverage{font-size:11px; color:var(--text-faint); margin-top:2px;}
+
+  .toggle-details{
+    font-size:11.5px; color:var(--blue); cursor:pointer; margin-top:10px; user-select:none; font-weight:600;
+    display:flex; align-items:center; gap:4px;
+  }
+  .toggle-details svg{transition:transform .18s ease;}
+  .toggle-details.open svg{transform:rotate(180deg);}
+  .breakdown{
+    margin-top:0; max-height:0; overflow:hidden; font-size:12.5px; color:var(--text-dim);
+    transition:max-height .22s ease, margin-top .22s ease, padding-top .22s ease;
+  }
+  .breakdown.open{margin-top:8px; max-height:400px; padding-top:10px; border-top:1px dashed var(--border);}
+  .breakdown-row{display:flex; align-items:center; gap:7px; padding:3px 0;}
+  .breakdown-dot{width:6px; height:6px; border-radius:50%; flex:none;}
+  .breakdown-dot.pos{background:var(--green);}
+  .breakdown-dot.neg{background:var(--red);}
+  .breakdown-row .rk{font-size:10px; color:var(--text-faint); margin-left:auto; flex:none; padding-left:8px;}
+
+  .empty-msg{
+    text-align:center; color:var(--text-dim); font-size:13.5px; padding:34px 16px;
+    background:var(--surface); border:1px dashed var(--border); border-radius:var(--radius-m);
+  }
+
+  .tier-row{margin-bottom:10px;}
+  .tier-row-head{display:flex; align-items:center; gap:10px; margin-bottom:10px;}
+  .tier-badge{
+    font-family:var(--font-display); font-weight:700; font-size:13px; width:30px; height:30px;
+    border-radius:9px; display:flex; align-items:center; justify-content:center; flex:none;
+  }
+  .tier-badge.t-S{background:var(--red-soft); color:var(--red); border:1px solid #ff4d5e55;}
+  .tier-badge.t-A{background:var(--gold-soft); color:var(--gold); border:1px solid #ffb23855;}
+  .tier-badge.t-B{background:var(--blue-soft); color:var(--blue); border:1px solid #4c8dff55;}
+  .tier-badge.t-other{background:var(--surface-3); color:var(--text-dim); border:1px solid var(--border);}
+  .tier-label{font-family:var(--font-display); font-size:13.5px; font-weight:600; color:var(--text-dim);}
+  .tier-chips{display:flex; flex-wrap:wrap; gap:7px;}
+  .hero-chip{
+    background:var(--surface-2); border:1px solid var(--border); border-radius:20px; padding:5px 13px 5px 5px;
+    font-size:12.5px; font-weight:600; cursor:pointer; transition:border-color .15s ease, background .15s ease, transform .12s ease;
+    display:inline-flex; align-items:center; gap:8px;
+  }
+  .hero-chip:hover{border-color:var(--gold); background:var(--surface-3); transform:translateY(-1px);}
+  .meta-credit{
+    margin-top:18px; text-align:center; font-size:11.5px; color:var(--text-faint);
+    padding-top:16px; border-top:1px solid var(--border-soft);
+  }
+  .meta-credit a{color:var(--gold); font-weight:600; text-decoration:none;}
+  .meta-credit a:hover{text-decoration:underline;}
+
+  .lookup-cols{display:grid; grid-template-columns:repeat(auto-fit, minmax(260px, 1fr)); gap:12px; margin-top:14px;}
+  .lookup-col-title{
+    display:flex; align-items:center; gap:8px; font-family:var(--font-display); font-weight:600;
+    font-size:13.5px; margin-bottom:10px;
+  }
+  .lookup-col-title .dot{width:8px; height:8px; border-radius:50%; flex:none;}
+  .lookup-col-title.good .dot{background:var(--green);}
+  .lookup-col-title.bad .dot{background:var(--red);}
+  .lookup-row{
+    display:flex; justify-content:space-between; align-items:center; padding:9px 11px; background:var(--surface-2);
+    border-radius:10px; margin-bottom:6px; font-size:13px; border:1px solid var(--border);
+  }
+  .lookup-row .left{display:flex; align-items:center; gap:8px; min-width:0;}
+  .lookup-row .name{font-weight:600; overflow:hidden; text-overflow:ellipsis; white-space:nowrap;}
+  .lookup-row .val{font-weight:700; font-family:var(--font-display); flex:none;}
+  .lookup-row .val.pos{color:var(--green);}
+  .lookup-row .val.neg{color:var(--red);}
+  .rank-tag{
+    font-size:9px; background:var(--surface); border:1px solid var(--border); color:var(--text-faint);
+    padding:2px 6px; border-radius:20px; flex:none;
+  }
+  .lookup-hero-head{
+    font-family:var(--font-display); font-size:19px; font-weight:700; margin:0; display:flex; align-items:center; gap:12px;
+  }
+  .tier-tag{font-size:9px; font-weight:700; padding:2px 7px; border-radius:6px; margin-left:6px; vertical-align:middle;}
+  .tier-tag.tier-S{background:var(--red-soft); color:var(--red); border:1px solid #ff4d5e55;}
+  .tier-tag.tier-A{background:var(--gold-soft); color:var(--gold); border:1px solid #ffb23855;}
+  .tier-tag.tier-B{background:var(--blue-soft); color:var(--blue); border:1px solid #4c8dff55;}
+
+  #loadingMsg, #errorMsg{text-align:center; padding:80px 20px; color:var(--text-dim); font-size:13.5px;}
+  #errorMsg{color:var(--red); display:none;}
+  .spinner{
+    width:26px; height:26px; border-radius:50%; border:2.5px solid var(--border); border-top-color:var(--gold);
+    margin:0 auto 14px; animation:spin .8s linear infinite;
+  }
+  @keyframes spin{to{transform:rotate(360deg);}}
+
+  footer.meta-strip{text-align:center; font-size:10.5px; color:var(--text-faint); margin-top:26px;}
+
+  @media (max-width:520px){
+    .header-inner{padding:12px 14px;}
+    .brand-sub{display:none;}
+    .tab{padding:8px 12px; font-size:12.5px;}
+    .shell{padding:0 14px 48px;}
+    .page-head{padding:20px 0 14px;}
+    .page-head h1{font-size:21px;}
+  }
+</style>
+</head>
+<body>
+
+<header>
+  <div class="header-inner">
+    <div class="brand">
+      <svg class="brand-mark" viewBox="0 0 32 32" fill="none" xmlns="http://www.w3.org/2000/svg">
+        <rect width="32" height="32" rx="8" fill="#161b26"/>
+        <circle cx="16" cy="16" r="9" stroke="#ffb238" stroke-width="2.1"/>
+        <circle cx="16" cy="16" r="2.6" fill="#ff4d5e"/>
+        <line x1="16" y1="3.6" x2="16" y2="7.6" stroke="#ffb238" stroke-width="2.1" stroke-linecap="round"/>
+        <line x1="16" y1="24.4" x2="16" y2="28.4" stroke="#ffb238" stroke-width="2.1" stroke-linecap="round"/>
+        <line x1="3.6" y1="16" x2="7.6" y2="16" stroke="#ffb238" stroke-width="2.1" stroke-linecap="round"/>
+        <line x1="24.4" y1="16" x2="28.4" y2="16" stroke="#ffb238" stroke-width="2.1" stroke-linecap="round"/>
+      </svg>
+      <div class="brand-text">
+        <div class="brand-name">CounterPick</div>
+        <div class="brand-sub">MLBB draft intelligence</div>
+      </div>
+    </div>
+    <nav class="tabs" id="tabNav">
+      <div class="tab-indicator" id="tabIndicator"></div>
+      <div class="tab active" data-tab="draft">Draft</div>
+      <div class="tab" data-tab="meta">Meta</div>
+      <div class="tab" data-tab="lookup">Lookup</div>
+    </nav>
+  </div>
+</header>
+
+<div class="shell">
+
+<div id="loadingMsg"><div class="spinner"></div>Loading hero data…</div>
+<div id="errorMsg">Couldn't load <code>data.json</code>. Make sure it's in the same folder as this page and you're viewing it through a web server (e.g. GitHub Pages) rather than opening the file directly.</div>
+
+<div id="app" style="display:none;">
+
+<div id="tab-draft">
+  <div class="page-head">
+    <h1>Find your counter</h1>
+    <p>Enter the enemy lineup and see which heroes give you the strongest matchup.</p>
+  </div>
+
+  <div class="panel">
+    <div class="panel-head">
+      <div class="panel-bar red"></div>
+      <h2>Enemy team</h2>
+    </div>
+    <div class="enemy-grid" id="enemyInputs"></div>
+    <button class="cta" onclick="runDraftAssistant()">Find best picks</button>
+  </div>
+
+  <div id="results"></div>
+</div>
+
+<div id="tab-meta" style="display:none;">
+  <div class="page-head">
+    <h1>Current meta</h1>
+    <p>Tier list for the current patch, grouped by impact.</p>
+  </div>
+  <div class="panel" id="metaPanel"></div>
+</div>
+
+<div id="tab-lookup" style="display:none;">
+  <div class="page-head">
+    <h1>Hero lookup</h1>
+    <p>See who beats — and who's beaten by — any hero on the roster.</p>
+  </div>
+
+  <div class="panel">
+    <div class="panel-head">
+      <div class="panel-bar blue"></div>
+      <h2>Search a hero</h2>
+    </div>
+    <div class="field">
+      <input type="text" id="lookupInput" list="heroList" placeholder="Type a hero name…" autocomplete="off">
+    </div>
+    <button class="cta" onclick="runLookup()">Show matchups</button>
+  </div>
+
+  <div id="lookupResults"></div>
+</div>
+
+<datalist id="heroList"></datalist>
+<footer class="meta-strip" id="meta"></footer>
+
+</div>
+</div>
+
+<script>
+let HEROES = {};
+let NAME_TO_ID = {};
+let BEST = [];
+let WORST = [];
+let BY_MAIN = {};       
+let META = {};          
+let TIERS = {};         
+let TIER_ORDER = ['S+','S','A+','A','B+','B','C+','C','D'];
+let META_CREDIT = { text: 'Tier list curated by u/hmmsucks on Reddit', url: 'https://www.reddit.com/user/hmmsucks/' };
+
+function heroName(id){
+  const h = HEROES[id];
+  if(typeof h === 'string') return h;
+  return (h && h.name) || 'Unknown';
+}
+function heroImage(id){
+  const h = HEROES[id];
+  return (h && typeof h === 'object' && h.image) ? h.image : null;
+}
+function avatarHTML(id, size){
+  const img = heroImage(id);
+  const initial = heroName(id).charAt(0).toUpperCase();
+  if(img){
+    return `<span class="avatar avatar-${size}"><img src="${img}" alt="" loading="lazy" onerror="this.style.display='none';this.nextElementSibling.style.display='flex';"><span class="avatar-fallback" style="display:none">${initial}</span></span>`;
+  }
+  return `<span class="avatar avatar-${size}"><span class="avatar-fallback" style="display:flex">${initial}</span></span>`;
+}
+
+async function loadMeta(){
+  try{
+    const res = await fetch('meta.json', {cache:'no-store'});
+    if(!res.ok) return;
+    const json = await res.json();
+    Object.keys(json).forEach(key=>{
+      if(key === 'credit'){
+        if(json.credit && json.credit.text && json.credit.url) META_CREDIT = json.credit;
+        return;
+      }
+      TIERS[key] = json[key];
+      json[key].forEach(name=>{
+        const id = idFor(name);
+        if(id !== null) META[id] = key;
+      });
+    });
+  } catch(e){ }
+}
+
+function tierTag(id){
+  const t = META[id];
+  if(!t) return '';
+  const cls = (t === 'S' || t === 'S+') ? 'tier-S' : (t === 'A' || t === 'A+') ? 'tier-A' : (t === 'B' || t === 'B+') ? 'tier-B' : '';
+  return ` <span class="tier-tag ${cls}">${t}</span>`;
+}
+
+async function loadData(){
+  try{
+    const res = await fetch('data.json', {cache:'no-store'});
+    if(!res.ok) throw new Error('bad status ' + res.status);
+    const DATA = await res.json();
+
+    HEROES = DATA.heroes;
+    BEST = DATA.best;     
+    WORST = DATA.worst;   
+
+    Object.keys(HEROES).forEach(id => NAME_TO_ID[heroName(id).toLowerCase()] = parseInt(id));
+    Object.keys(HEROES).forEach(id => BY_MAIN[id] = {beats: [], beatenBy: []});
+    BEST.forEach(r => { if(BY_MAIN[r[0]]) BY_MAIN[r[0]].beats.push({other:r[1], score:r[2], rank:r[3]}); });
+    WORST.forEach(r => { if(BY_MAIN[r[0]]) BY_MAIN[r[0]].beatenBy.push({other:r[1], score:Math.abs(r[2]), rank:r[3]}); });
+
+    document.getElementById('loadingMsg').style.display = 'none';
+    document.getElementById('app').style.display = 'block';
+    document.getElementById('meta').textContent =
+      `${Object.keys(HEROES).length} heroes · updated ${DATA.generated || 'unknown date'}`;
+
+    await loadMeta();
+    init();
+  } catch(err){
+    document.getElementById('loadingMsg').style.display = 'none';
+    document.getElementById('errorMsg').style.display = 'block';
+    console.error(err);
+  }
+}
+
+function init(){
+  const dl = document.getElementById('heroList');
+  Object.keys(HEROES).sort((a,b)=>heroName(a).localeCompare(heroName(b))).forEach(id=>{
+    const opt = document.createElement('option');
+    opt.value = heroName(id);
+    dl.appendChild(opt);
+  });
+
+  const wrap = document.getElementById('enemyInputs');
+  for(let i=1;i<=5;i++){
+    const div = document.createElement('div');
+    div.className = 'field';
+    div.innerHTML = `<label for="enemy-${i}">Enemy ${i}</label>
+      <input type="text" id="enemy-${i}" class="enemy-input" list="heroList" placeholder="Type hero name…" autocomplete="off">`;
+    wrap.appendChild(div);
+  }
+
+  document.querySelectorAll('.tab').forEach((t)=>{
+    t.addEventListener('click', ()=> selectTab(t.dataset.tab));
+  });
+  selectTab('draft', true);
+
+  renderMetaTab();
+}
+
+function selectTab(name, isInitial){
+  document.querySelectorAll('.tab').forEach(x=>x.classList.toggle('active', x.dataset.tab === name));
+  document.getElementById('tab-draft').style.display = name === 'draft' ? 'block':'none';
+  document.getElementById('tab-meta').style.display = name === 'meta' ? 'block':'none';
+  document.getElementById('tab-lookup').style.display = name === 'lookup' ? 'block':'none';
+  moveTabIndicator(isInitial);
+}
+
+function moveTabIndicator(instant){
+  const active = document.querySelector('.tab.active');
+  const ind = document.getElementById('tabIndicator');
+  if(!active) return;
+  const apply = ()=>{
+    ind.style.width = active.offsetWidth + 'px';
+    ind.style.transform = `translateX(${active.offsetLeft - 4}px)`;
+  };
+  if(instant){
+    ind.style.transition = 'none';
+    apply();
+    requestAnimationFrame(()=>{ ind.style.transition = ''; });
+  } else {
+    apply();
+  }
+}
+window.addEventListener('resize', ()=>moveTabIndicator(true));
+
+function idFor(name){
+  if(!name) return null;
+  const id = NAME_TO_ID[name.trim().toLowerCase()];
+  return id === undefined ? null : id;
+}
+
+function pct(x){ return (x*100).toFixed(2) + '%'; }
+
+function runDraftAssistant(){
+  const enemyNames = Array.from(document.querySelectorAll('.enemy-input')).map(i=>i.value.trim()).filter(v=>v);
+  const enemyIds = enemyNames.map(idFor).filter(id=>id!==null);
+  const results = document.getElementById('results');
+
+  if(enemyIds.length === 0){
+    results.innerHTML = '<div class="empty-msg">Add at least one enemy hero to get suggestions.</div>';
+    return;
+  }
+
+  const excluded = new Set(enemyIds);
+  const scores = {};
+
+  enemyIds.forEach(eid=>{
+    const rec = BY_MAIN[eid];
+    if(!rec) return;
+    rec.beatenBy.forEach(({other, score, rank})=>{
+      if(excluded.has(other)) return;
+      if(!scores[other]) scores[other] = {total:0, matched:[], topRankHits:0};
+      scores[other].total += score;
+      scores[other].matched.push({enemyId: eid, score, type:'good', rank});
+      if(rank === 1) scores[other].topRankHits++;
+    });
+    rec.beats.forEach(({other, score, rank})=>{
+      if(excluded.has(other)) return;
+      if(!scores[other]) scores[other] = {total:0, matched:[], topRankHits:0};
+      scores[other].total -= score;
+      scores[other].matched.push({enemyId: eid, score: -score, type:'bad', rank});
+    });
+  });
+
+  const ranked = Object.entries(scores)
+    .map(([id, v]) => ({id: parseInt(id), ...v}))
+    .sort((a,b)=> (b.total + b.topRankHits*0.003) - (a.total + a.topRankHits*0.003));
+
+  if(ranked.length === 0){
+    results.innerHTML = '<div class="empty-msg">No recorded matchup data for these specific heroes yet. Try different or fewer enemies.</div>';
+    return;
+  }
+
+  const top15 = ranked.slice(0, 15);
+  const maxAbs = Math.max(...top15.map(r=>Math.abs(r.total)), 0.0001);
+
+  let html = `<div class="hint">Showing heroes with recorded matchup data against your ${enemyIds.length} selected enem${enemyIds.length>1?'ies':'y'}. No data for a hero just means Moonton hasn't published that matchup — not that it's a bad pick.</div>`;
+  html += `<div class="results-grid">`;
+
+  top15.forEach((r, idx)=>{
+    const cls = r.total >= 0 ? 'good' : 'bad';
+    const rankCls = idx === 0 ? 'r1' : idx === 1 ? 'r2' : idx === 2 ? 'r3' : '';
+    const flag = r.topRankHits > 0 ? `<span class="top-pick-flag">#1 vs ${r.topRankHits>1? r.topRankHits+' enemies':'an enemy'}</span>` : '';
+    const barWidth = Math.min(100, Math.round((Math.abs(r.total)/maxAbs)*100));
+
+    const breakdown = r.matched.map(m=>{
+      const enemyName = heroName(m.enemyId);
+      if(m.type === 'good'){
+        return `<div class="breakdown-row"><span class="breakdown-dot pos"></span>Beats ${enemyName}<span class="rk">#${m.rank} · +${pct(m.score)}</span></div>`;
+      } else {
+        return `<div class="breakdown-row"><span class="breakdown-dot neg"></span>${enemyName} beats this hero<span class="rk">#${m.rank} · ${pct(m.score)}</span></div>`;
+      }
+    }).join('');
+
+    html += `
+    <div class="result-card">
+      <div class="result-top">
+        <div class="rank-chip ${rankCls}">${idx+1}</div>
+        ${avatarHTML(r.id, 'md')}
+        <div class="hero-name">${heroName(r.id)}${tierTag(r.id)}${flag}</div>
+        <div class="score ${cls}">${r.total>=0?'+':''}${pct(r.total)}</div>
+      </div>
+      <div class="score-bar-track"><div class="score-bar-fill ${cls}" style="width:${barWidth}%"></div></div>
+      <div class="coverage">Data for ${r.matched.length} of ${enemyIds.length} selected ${enemyIds.length>1?'enemies':'enemy'}</div>
+      <div class="toggle-details" onclick="toggleBreakdown(this)">
+        Show reasoning
+        <svg width="9" height="6" viewBox="0 0 9 6" fill="none"><path d="M1 1L4.5 5L8 1" stroke="currentColor" stroke-width="1.4" stroke-linecap="round" stroke-linejoin="round"/></svg>
+      </div>
+      <div class="breakdown">${breakdown}</div>
+    </div>`;
+  });
+
+  html += `</div>`;
+  results.innerHTML = html;
+}
+
+function toggleBreakdown(el){
+  el.classList.toggle('open');
+  el.nextElementSibling.classList.toggle('open');
+  el.childNodes[0].nodeValue = el.classList.contains('open') ? 'Hide reasoning ' : 'Show reasoning ';
+}
+
+function runLookup(){
+  const name = document.getElementById('lookupInput').value.trim();
+  lookupHero(name);
+}
+
+function lookupHero(name){
+  const id = idFor(name);
+  const box = document.getElementById('lookupResults');
+  if(id === null){
+    box.innerHTML = '<div class="empty-msg">Pick a valid hero name from the list.</div>';
+    return;
+  }
+  document.getElementById('lookupInput').value = heroName(id);
+
+  const rec = BY_MAIN[id] || {beats:[], beatenBy:[]};
+  const beatenBy = [...rec.beatenBy].sort((a,b)=>a.rank-b.rank);
+  const beats = [...rec.beats].sort((a,b)=>a.rank-b.rank);
+
+  let html = `<div class="panel">
+    <h3 class="lookup-hero-head">${avatarHTML(id, 'lg')}${heroName(id)}${tierTag(id)}</h3>
+  </div>`;
+
+  html += `<div class="lookup-cols">`;
+
+  html += `<div class="panel">
+    <div class="lookup-col-title good"><span class="dot"></span>Best picks against ${heroName(id)}</div>`;
+  if(beatenBy.length === 0){ html += `<div class="hint">No recorded data.</div>`; }
+  beatenBy.forEach(m=>{
+    html += `<div class="lookup-row"><span class="left">${avatarHTML(m.other, 'sm')}<span class="name">${heroName(m.other)}</span>${tierTag(m.other)} <span class="rank-tag">#${m.rank}</span></span><span class="val pos">+${pct(m.score)}</span></div>`;
+  });
+  html += `</div>`;
+
+  html += `<div class="panel">
+    <div class="lookup-col-title bad"><span class="dot"></span>Heroes ${heroName(id)} beats well</div>`;
+  if(beats.length === 0){ html += `<div class="hint">No recorded data.</div>`; }
+  beats.forEach(m=>{
+    html += `<div class="lookup-row"><span class="left">${avatarHTML(m.other, 'sm')}<span class="name">${heroName(m.other)}</span>${tierTag(m.other)} <span class="rank-tag">#${m.rank}</span></span><span class="val neg">-${pct(m.score)}</span></div>`;
+  });
+  html += `</div>`;
+
+  html += `</div>`;
+  box.innerHTML = html;
+}
+
+function renderMetaTab(){
+  const panel = document.getElementById('metaPanel');
+  const keys = Object.keys(TIERS);
+  if(keys.length === 0){
+    panel.innerHTML = `<div class="empty-msg">No meta tier data found. Add a <code>meta.json</code> file next to <code>index.html</code>.</div>`;
+    return;
+  }
+  const sorted = keys.sort((a,b)=>{
+    const ai = TIER_ORDER.indexOf(a), bi = TIER_ORDER.indexOf(b);
+    if(ai === -1 && bi === -1) return a.localeCompare(b);
+    if(ai === -1) return 1;
+    if(bi === -1) return -1;
+    return ai - bi;
+  });
+
+  let html = '';
+  sorted.forEach(tier=>{
+    const names = TIERS[tier];
+    if(!names || names.length === 0) return;
+    const badgeCls = (tier === 'S' || tier === 'S+') ? 't-S' : (tier === 'A' || tier === 'A+') ? 't-A' : (tier === 'B' || tier === 'B+') ? 't-B' : 't-other';
+    html += `<div class="tier-row">
+      <div class="tier-row-head">
+        <div class="tier-badge ${badgeCls}">${tier}</div>
+        <div class="tier-label">${tier}-tier · ${names.length} hero${names.length>1?'es':''}</div>
+      </div>
+      <div class="tier-chips">`;
+    names.forEach(n=>{
+      const hid = idFor(n);
+      const avatar = hid !== null ? avatarHTML(hid, 'sm') : '';
+      html += `<div class="hero-chip" onclick="jumpToLookup('${n.replace(/'/g,"\\'")}')">${avatar}<span>${n}</span></div>`;
+    });
+    html += `</div></div>`;
+  });
+
+  html += `<div class="meta-credit">${META_CREDIT.text} — <a href="${META_CREDIT.url}" target="_blank" rel="noopener">view on Reddit</a></div>`;
+  panel.innerHTML = html;
+}
+
+function jumpToLookup(name){
+  selectTab('lookup');
+  document.getElementById('lookupInput').value = name;
+  lookupHero(name);
+}
+
+loadData();
+</script>
+</body>
+</html>
