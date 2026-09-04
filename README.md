@@ -1,4 +1,4 @@
-# CounterPick — MLBB Draft Intelligence
+# CounterPick
 
 A lightweight, web-based draft assistant and counter-pick lookup tool for Mobile Legends: Bang Bang (MLBB).
 
