@@ -274,6 +274,14 @@
   .tier-tag.tier-A{background:var(--gold-soft); color:var(--gold); border:1px solid #ffb23855;}
   .tier-tag.tier-B{background:var(--blue-soft); color:var(--blue); border:1px solid #4c8dff55;}
 
+  .role-tag, .lane-tag{
+    display:inline-block; font-size:9.5px; font-weight:700; padding:3px 9px; border-radius:20px;
+    margin:2px 5px 2px 0; vertical-align:middle;
+  }
+  .role-tag{background:var(--blue-soft); color:var(--blue); border:1px solid #4c8dff55;}
+  .lane-tag{background:var(--surface-3); color:var(--text-dim); border:1px solid var(--border);}
+  .profile-tags{margin-top:8px;}
+
   #loadingMsg, #errorMsg{text-align:center; padding:80px 20px; color:var(--text-dim); font-size:13.5px;}
   #errorMsg{color:var(--red); display:none;}
   .spinner{
@@ -400,6 +408,22 @@ function heroName(id){
 function heroImage(id){
   const h = HEROES[id];
   return (h && typeof h === 'object' && h.image) ? h.image : null;
+}
+function heroRoles(id){
+  const h = HEROES[id];
+  return (h && Array.isArray(h.role)) ? h.role.map(String) : [];
+}
+function heroLanes(id){
+  const h = HEROES[id];
+  return (h && Array.isArray(h.lane)) ? h.lane.map(String) : [];
+}
+function roleLaneTagsHTML(id){
+  const roles = heroRoles(id), lanes = heroLanes(id);
+  if(roles.length === 0 && lanes.length === 0) return '';
+  let html = '';
+  roles.forEach(r=> html += `<span class="role-tag">${r}</span>`);
+  lanes.forEach(l=> html += `<span class="lane-tag">${l}</span>`);
+  return `<div class="profile-tags">${html}</div>`;
 }
 function avatarHTML(id, size){
   const img = heroImage(id);
@@ -586,11 +610,10 @@ function runDraftAssistant(){
 
   top15.forEach((r, idx)=>{
     const cls = r.total >= 0 ? 'good' : 'bad';
-    const hero = HEROES[r.id] || {};
-    const roles = Array.isArray(hero.role) ? hero.role : [];
-    const lanes = Array.isArray(hero.lane) ? hero.lane : [];
-    const roleAttr = roles.map(x=>String(x)).join('|');
-    const laneAttr = lanes.map(x=>String(x)).join('|');
+    const roles = heroRoles(r.id);
+    const lanes = heroLanes(r.id);
+    const roleAttr = roles.join('|');
+    const laneAttr = lanes.join('|');
     const rankCls = idx === 0 ? 'r1' : idx === 1 ? 'r2' : idx === 2 ? 'r3' : '';
     const flag = r.topRankHits > 0 ? `<span class="top-pick-flag">#1 vs ${r.topRankHits>1? r.topRankHits+' enemies':'an enemy'}</span>` : '';
     const barWidth = Math.min(100, Math.round((Math.abs(r.total)/maxAbs)*100));
@@ -613,7 +636,7 @@ function runDraftAssistant(){
         <div class="score ${cls}">${r.total>=0?'+':''}${pct(r.total)}</div>
       </div>
       <div class="score-bar-track"><div class="score-bar-fill ${cls}" style="width:${barWidth}%"></div></div>
-      <div class="coverage">Data for ${r.matched.length} of ${enemyIds.length} selected ${enemyIds.length>1?'enemies':'enemy'}</div>
+      <div class="coverage">${roles.join(' / ')}${lanes.length?' · '+lanes.join(' / '):''}${(roles.length||lanes.length)?' — ':''}Data for ${r.matched.length} of ${enemyIds.length} selected ${enemyIds.length>1?'enemies':'enemy'}</div>
       <div class="toggle-details" onclick="toggleBreakdown(this)">
         Show reasoning
         <svg width="9" height="6" viewBox="0 0 9 6" fill="none"><path d="M1 1L4.5 5L8 1" stroke="currentColor" stroke-width="1.4" stroke-linecap="round" stroke-linejoin="round"/></svg>
@@ -634,9 +657,8 @@ function populateBestPickFilters(top15){
 
   const roles = new Set(), lanes = new Set();
   top15.forEach(r=>{
-    const h = HEROES[r.id] || {};
-    (Array.isArray(h.role) ? h.role : []).forEach(x=>roles.add(String(x)));
-    (Array.isArray(h.lane) ? h.lane : []).forEach(x=>lanes.add(String(x)));
+    heroRoles(r.id).forEach(x=>roles.add(x));
+    heroLanes(r.id).forEach(x=>lanes.add(x));
   });
 
   const makeButtons = (items, type) => {
@@ -701,6 +723,7 @@ function lookupHero(name){
 
   let html = `<div class="panel">
     <h3 class="lookup-hero-head">${avatarHTML(id, 'lg')}${heroName(id)}${tierTag(id)}</h3>
+    ${roleLaneTagsHTML(id)}
   </div>`;
 
   html += `<div class="lookup-cols">`;
@@ -740,12 +763,22 @@ function renderMetaTab(){
     return ai - bi;
   });
 
-  let html = '';
+  let html = `<div class="results-filters">
+    <div class="filter-row">
+      <div class="filter-label">Role</div>
+      <div class="filter-options" id="metaRoleFilter"></div>
+    </div>
+    <div class="filter-row">
+      <div class="filter-label">Lane</div>
+      <div class="filter-options" id="metaLaneFilter"></div>
+    </div>
+  </div>`;
+
   sorted.forEach(tier=>{
     const names = TIERS[tier];
     if(!names || names.length === 0) return;
     const badgeCls = (tier === 'S' || tier === 'S+') ? 't-S' : (tier === 'A' || tier === 'A+') ? 't-A' : (tier === 'B' || tier === 'B+') ? 't-B' : 't-other';
-    html += `<div class="tier-row">
+    html += `<div class="tier-row" data-tier-row="${tier}">
       <div class="tier-row-head">
         <div class="tier-badge ${badgeCls}">${tier}</div>
         <div class="tier-label">${tier}-tier · ${names.length} hero${names.length>1?'es':''}</div>
@@ -754,13 +787,69 @@ function renderMetaTab(){
     names.forEach(n=>{
       const hid = idFor(n);
       const avatar = hid !== null ? avatarHTML(hid, 'sm') : '';
-      html += `<div class="hero-chip" onclick="jumpToLookup('${n.replace(/'/g,"\\'")}')">${avatar}<span>${n}</span></div>`;
+      const roleAttr = hid !== null ? heroRoles(hid).join('|') : '';
+      const laneAttr = hid !== null ? heroLanes(hid).join('|') : '';
+      html += `<div class="hero-chip" data-roles="${roleAttr}" data-lanes="${laneAttr}" onclick="jumpToLookup('${n.replace(/'/g,"\\'")}')">${avatar}<span>${n}</span></div>`;
     });
     html += `</div></div>`;
   });
 
   html += `<div class="meta-credit">${META_CREDIT.text} — <a href="${META_CREDIT.url}" target="_blank" rel="noopener">view on Reddit</a></div>`;
   panel.innerHTML = html;
+  populateMetaFilters();
+}
+
+function populateMetaFilters(){
+  const roleEl = document.getElementById('metaRoleFilter');
+  const laneEl = document.getElementById('metaLaneFilter');
+  if(!roleEl || !laneEl) return;
+
+  const roles = new Set(), lanes = new Set();
+  document.querySelectorAll('#metaPanel .hero-chip').forEach(chip=>{
+    (chip.dataset.roles || '').split('|').filter(Boolean).forEach(x=>roles.add(x));
+    (chip.dataset.lanes || '').split('|').filter(Boolean).forEach(x=>lanes.add(x));
+  });
+
+  const makeButtons = (items, type) => {
+    const allLabel = type === 'role' ? 'All Roles' : 'All Lanes';
+    const buttons = [`<button type="button" class="filter-option active" data-filter-type="${type}" data-filter-value="" onclick="setMetaFilter('${type}','')">${allLabel}</button>`];
+    [...items].sort((a,b)=>a.localeCompare(b)).forEach(x=>{
+      const safe = x.replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;').replace(/'/g,'&#39;');
+      buttons.push(`<button type="button" class="filter-option" data-filter-type="${type}" data-filter-value="${safe}" onclick="setMetaFilter('${type}',this.dataset.filterValue)">${safe}</button>`);
+    });
+    return buttons.join('');
+  };
+
+  roleEl.innerHTML = makeButtons(roles, 'role');
+  laneEl.innerHTML = makeButtons(lanes, 'lane');
+  window.metaFilters = {role:'', lane:''};
+}
+
+function setMetaFilter(type, value){
+  if(!window.metaFilters) window.metaFilters = {role:'', lane:''};
+  window.metaFilters[type] = value || '';
+
+  document.querySelectorAll(`#meta${type === 'role' ? 'Role' : 'Lane'}Filter .filter-option`).forEach(btn=>{
+    btn.classList.toggle('active', (btn.dataset.filterValue || '') === window.metaFilters[type]);
+  });
+
+  filterMetaChips();
+}
+
+function filterMetaChips(){
+  const role = window.metaFilters?.role || '';
+  const lane = window.metaFilters?.lane || '';
+  document.querySelectorAll('#metaPanel .tier-row').forEach(row=>{
+    let visibleCount = 0;
+    row.querySelectorAll('.hero-chip').forEach(chip=>{
+      const roles = (chip.dataset.roles || '').split('|').filter(Boolean);
+      const lanes = (chip.dataset.lanes || '').split('|').filter(Boolean);
+      const show = (!role || roles.includes(role)) && (!lane || lanes.includes(lane));
+      chip.style.display = show ? '' : 'none';
+      if(show) visibleCount++;
+    });
+    row.style.display = visibleCount > 0 ? '' : 'none';
+  });
 }
 
 function jumpToLookup(name){
