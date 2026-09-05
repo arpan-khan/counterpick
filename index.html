@@ -142,6 +142,15 @@
 
   #results{margin-top:16px;}
   .results-grid{display:grid; grid-template-columns:repeat(auto-fill, minmax(300px, 1fr)); gap:10px;}
+  .results-filters{display:flex; flex-direction:column; gap:8px; margin:0 0 14px; padding:12px; background:var(--surface); border:1px solid var(--border); border-radius:var(--radius-m);}
+  .filter-row{display:flex; align-items:center; gap:7px; min-width:0;}
+  .filter-label{width:46px; flex:none; font-family:var(--font-display); font-size:10.5px; font-weight:700; color:var(--text-faint); text-transform:uppercase; letter-spacing:.4px;}
+  .filter-options{display:flex; gap:6px; flex-wrap:nowrap; overflow-x:auto; scrollbar-width:none; min-width:0; padding:1px 0;}
+  .filter-options::-webkit-scrollbar{display:none;}
+  .filter-option{flex:none; padding:7px 11px; border-radius:20px; background:var(--surface-2); color:var(--text-dim); border:1px solid var(--border); font-size:11.5px; font-weight:600; cursor:pointer; white-space:nowrap; transition:background .15s ease, color .15s ease, border-color .15s ease, transform .12s ease;}
+  .filter-option:hover{border-color:var(--gold); color:var(--text); background:var(--surface-3);}
+  .filter-option.active{background:var(--gold); color:#191308; border-color:var(--gold);}
+  .filter-option:active{transform:scale(.97);}
 
   .result-card{
     background:var(--surface); border:1px solid var(--border); border-radius:var(--radius-m);
@@ -323,7 +332,7 @@
 <div id="tab-draft">
   <div class="page-head">
     <h1>Find your counter</h1>
-    <p>Enter the enemy lineup and see which heroes give you the strongest matchup.</p>
+    <p>Enter the enemy lineup to find the best counters.</p>
   </div>
 
   <div class="panel">
@@ -349,7 +358,7 @@
 <div id="tab-lookup" style="display:none;">
   <div class="page-head">
     <h1>Hero lookup</h1>
-    <p>See who beats — and who's beaten by — any hero on the roster.</p>
+    <p>Check a hero's counters and matchups.</p>
   </div>
 
   <div class="panel">
@@ -558,11 +567,30 @@ function runDraftAssistant(){
   const top15 = ranked.slice(0, 15);
   const maxAbs = Math.max(...top15.map(r=>Math.abs(r.total)), 0.0001);
 
-  let html = `<div class="hint">Showing heroes with recorded matchup data against your ${enemyIds.length} selected enem${enemyIds.length>1?'ies':'y'}. No data for a hero just means Moonton hasn't published that matchup — not that it's a bad pick.</div>`;
-  html += `<div class="results-grid">`;
+  let html = `<div class="hint">
+  <span style="color:var(--green);font-weight:600;">Green</span> = Good Counter
+  &nbsp;·&nbsp;
+  <span style="color:var(--red);font-weight:600;">Red</span> = Bad Pick
+</div>`;
+  html += `<div class="results-filters">
+    <div class="filter-row">
+      <div class="filter-label">Role</div>
+      <div class="filter-options" id="bestRoleFilter"></div>
+    </div>
+    <div class="filter-row">
+      <div class="filter-label">Lane</div>
+      <div class="filter-options" id="bestLaneFilter"></div>
+    </div>
+  </div>`;
+  html += `<div class="results-grid" id="bestResultsGrid">`;
 
   top15.forEach((r, idx)=>{
     const cls = r.total >= 0 ? 'good' : 'bad';
+    const hero = HEROES[r.id] || {};
+    const roles = Array.isArray(hero.role) ? hero.role : [];
+    const lanes = Array.isArray(hero.lane) ? hero.lane : [];
+    const roleAttr = roles.map(x=>String(x)).join('|');
+    const laneAttr = lanes.map(x=>String(x)).join('|');
     const rankCls = idx === 0 ? 'r1' : idx === 1 ? 'r2' : idx === 2 ? 'r3' : '';
     const flag = r.topRankHits > 0 ? `<span class="top-pick-flag">#1 vs ${r.topRankHits>1? r.topRankHits+' enemies':'an enemy'}</span>` : '';
     const barWidth = Math.min(100, Math.round((Math.abs(r.total)/maxAbs)*100));
@@ -577,7 +605,7 @@ function runDraftAssistant(){
     }).join('');
 
     html += `
-    <div class="result-card">
+    <div class="result-card" data-roles="${roleAttr}" data-lanes="${laneAttr}">
       <div class="result-top">
         <div class="rank-chip ${rankCls}">${idx+1}</div>
         ${avatarHTML(r.id, 'md')}
@@ -596,6 +624,55 @@ function runDraftAssistant(){
 
   html += `</div>`;
   results.innerHTML = html;
+  populateBestPickFilters(top15);
+}
+
+function populateBestPickFilters(top15){
+  const roleEl = document.getElementById('bestRoleFilter');
+  const laneEl = document.getElementById('bestLaneFilter');
+  if(!roleEl || !laneEl) return;
+
+  const roles = new Set(), lanes = new Set();
+  top15.forEach(r=>{
+    const h = HEROES[r.id] || {};
+    (Array.isArray(h.role) ? h.role : []).forEach(x=>roles.add(String(x)));
+    (Array.isArray(h.lane) ? h.lane : []).forEach(x=>lanes.add(String(x)));
+  });
+
+  const makeButtons = (items, type) => {
+    const allLabel = type === 'role' ? 'All Roles' : 'All Lanes';
+    const buttons = [`<button type="button" class="filter-option active" data-filter-type="${type}" data-filter-value="" onclick="setBestPickFilter('${type}','')">${allLabel}</button>`];
+    [...items].sort((a,b)=>a.localeCompare(b)).forEach(x=>{
+      const safe = x.replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;').replace(/'/g,'&#39;');
+      buttons.push(`<button type="button" class="filter-option" data-filter-type="${type}" data-filter-value="${safe}" onclick="setBestPickFilter('${type}',this.dataset.filterValue)">${safe}</button>`);
+    });
+    return buttons.join('');
+  };
+
+  roleEl.innerHTML = makeButtons(roles, 'role');
+  laneEl.innerHTML = makeButtons(lanes, 'lane');
+  window.bestPickFilters = {role:'', lane:''};
+}
+
+function setBestPickFilter(type, value){
+  if(!window.bestPickFilters) window.bestPickFilters = {role:'', lane:''};
+  window.bestPickFilters[type] = value || '';
+
+  document.querySelectorAll(`#best${type === 'role' ? 'Role' : 'Lane'}Filter .filter-option`).forEach(btn=>{
+    btn.classList.toggle('active', (btn.dataset.filterValue || '') === window.bestPickFilters[type]);
+  });
+
+  filterBestPicks();
+}
+
+function filterBestPicks(){
+  const role = window.bestPickFilters?.role || '';
+  const lane = window.bestPickFilters?.lane || '';
+  document.querySelectorAll('#bestResultsGrid .result-card').forEach(card=>{
+    const roles = (card.dataset.roles || '').split('|').filter(Boolean);
+    const lanes = (card.dataset.lanes || '').split('|').filter(Boolean);
+    card.style.display = (!role || roles.includes(role)) && (!lane || lanes.includes(lane)) ? '' : 'none';
+  });
 }
 
 function toggleBreakdown(el){
