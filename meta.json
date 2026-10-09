@@ -1,8 +1,48 @@
 {
-  "S": ["Marcel", "Atlas", "Belerick", "Hirara", "Fanny", "Paquito", "Barats", "Uranus", "Melissa", "Freya"],
-  "A": ["Selena", "Novaria", "Eudora", "Valentina", "Zhuxin", "Rafaela", "Mathilda", "Minotaur", "Kaja", "Gloo", "Carmilla", "Yi Sun-shin", "Hanzo", "Harley", "Nolan", "Suyou", "Ling", "Lukas", "Esmeralda", "Alice", "Sora", "Ruby", "Dyrroth", "Claude", "Moskov", "Brody", "Clint", "Miya"],
+  "S": [
+    "Aulus",
+    "Carmilla",
+    "Hirara",
+    "Fanny",
+    "Zhuxin",
+    "Freya",
+    "Obsidia",
+    "Masha",
+    "Atlas",
+    "Minotaur"
+  ],
+  "A": [
+    "Alice",
+    "Barats",
+    "Uranus",
+    "Lukas",
+    "Esmeralda",
+    "Paquito",
+    "Nolan",
+    "Yi Sun-shin",
+    "Suyou",
+    "Harley",
+    "Valentina",
+    "Eudora",
+    "Selena",
+    "Novaria",
+    "Lylia",
+    "Kimmy",
+    "Rafaela",
+    "Cecilion",
+    "Claude",
+    "Beatrix",
+    "Moskov",
+    "Clint",
+    "Brody",
+    "Miya",
+    "Mathilda",
+    "Marcel",
+    "Gloo",
+    "Belerick"
+  ],
   "credit": {
-    "text": "Tier list curated by u/hmmsucks on Reddit",
+    "text": "Tier list provided by u/hmmsucks on Reddit",
     "url": "https://www.reddit.com/user/hmmsucks/"
   }
 }
